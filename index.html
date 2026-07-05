@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+    <title>交班报告生成器</title>
+    <style>
+        /* ===== 全局重置 & 基础 ===== */
+        * { box-sizing: border-box; font-family: -apple-system, "Helvetica Neue", sans-serif; }
+        body { 
+            margin: 0; 
+            background: #f2f2f7; 
+            display: flex; 
+            justify-content: center; 
+            padding: 16px 12px 40px; 
+            min-height: 100vh;
+        }
+        #app { 
+            max-width: 720px; 
+            width: 100%; 
+            background: white; 
+            border-radius: 20px; 
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1); 
+            padding: 16px 16px 24px; 
+        }
+
+        /* ===== 响应式字体 ===== */
+        html { font-size: 16px; }
+        @media (max-width: 480px) { html { font-size: 14px; } }
+        @media (min-width: 768px) { html { font-size: 18px; } }
+
+        /* ===== 标题 ===== */
+        h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+
+        /* ===== 标签切换 ===== */
+        .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+        .tab-btn { 
+            flex: 1; 
+            padding: 10px 0; 
+            background: #f2f2f7; 
+            border: none; 
+            border-radius: 12px; 
+            font-size: 1rem; 
+            font-weight: 500; 
+            color: #555; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            min-height: 44px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .tab-btn.active { background: #007aff; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ===== 设置表单 ===== */
+        .setting-form { 
+            background: #f8f8fc; 
+            border-radius: 16px; 
+            padding: 14px 16px; 
+            margin-bottom: 16px; 
+        }
+        .setting-form .row { margin-bottom: 10px; }
+        .setting-form label { 
+            display: block; 
+            font-size: 0.85rem; 
+            font-weight: 500; 
+            color: #555; 
+            margin-bottom: 4px; 
+        }
+        .setting-form input, .setting-form select { 
+            width: 100%; 
+            padding: 10px 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 10px; 
+            font-size: 1rem; 
+            background: white; 
+            min-height: 44px;
+        }
+        .type-group { display: flex; gap: 6px; flex-wrap: wrap; }
+        .type-group button { 
+            flex: 1 1 auto; 
+            min-width: 44px; 
+            padding: 8px 6px; 
+            border: 1px solid #ccc; 
+            border-radius: 8px; 
+            background: white; 
+            font-size: 0.8rem; 
+            cursor: pointer; 
+            transition: 0.15s; 
+            min-height: 36px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .type-group button.active { background: #007aff; color: white; border-color: #007aff; }
+        .action-row { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+        .action-row button { 
+            flex: 1; 
+            padding: 10px 0; 
+            border: none; 
+            border-radius: 12px; 
+            font-size: 1rem; 
+            font-weight: 500; 
+            cursor: pointer; 
+            min-height: 44px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-primary { background: #007aff; color: white; }
+        .btn-secondary { background: #e5e5ea; color: #333; }
+
+        /* ===== 字段列表 ===== */
+        .field-list { list-style: none; padding: 0; margin: 0; }
+        .field-list li { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background: white; 
+            padding: 8px 12px; 
+            border-radius: 12px; 
+            margin-bottom: 8px; 
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05); 
+            border: 1px solid #efeff4; 
+            flex-wrap: wrap; 
+            gap: 4px; 
+            min-height: 48px;
+        }
+        .field-list .info { flex: 1; font-size: 0.95rem; min-width: 60px; }
+        .field-list .info .type-badge { font-size: 0.75rem; color: #888; margin-left: 6px; }
+        .field-list .actions { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+        .field-list .actions button { 
+            background: none; 
+            border: none; 
+            font-size: 1.2rem; 
+            cursor: pointer; 
+            padding: 4px 6px; 
+            border-radius: 6px; 
+            min-height: 36px;
+            min-width: 36px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .field-list .actions .move-btn { color: #666; font-size: 1rem; }
+        .field-list .actions .edit-btn { color: #ff9500; }
+        .field-list .actions .del-btn { color: #ff3b30; }
+
+        /* ===== 填写页 ===== */
+        .fill-item { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #f0f0f0; }
+        .fill-item:last-child { border-bottom: none; }
+        .fill-item .field-label { 
+            display: block; 
+            font-size: 1rem; 
+            font-weight: 600; 
+            margin-bottom: 6px; 
+            color: #222; 
+        }
+        .fill-item input, .fill-item select, .fill-item textarea { 
+            width: 100%; 
+            padding: 10px 14px; 
+            border: 1px solid #ddd; 
+            border-radius: 10px; 
+            font-size: 1rem; 
+            background: white; 
+            font-family: inherit; 
+            min-height: 44px;
+        }
+        .fill-item textarea { min-height: 80px; resize: vertical; }
+        .fill-item .options-group { display: flex; flex-wrap: wrap; gap: 12px 20px; padding: 6px 0; }
+        .fill-item .options-group label { 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+            font-weight: normal; 
+            font-size: 0.95rem; 
+            min-height: 36px;
+        }
+        .fill-item .options-group input[type="checkbox"], 
+        .fill-item .options-group input[type="radio"] { 
+            width: 20px; 
+            height: 20px; 
+            accent-color: #007aff; 
+            flex-shrink: 0;
+        }
+
+        /* ===== 诊断列表 ===== */
+        .diagnosis-table { border: 1px solid #ddd; border-radius: 10px; overflow: hidden; }
+        .diagnosis-row { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 8px; 
+            padding: 8px 10px; 
+            border-bottom: 1px solid #eee; 
+            align-items: center; 
+            background: white; 
+        }
+        .diagnosis-row:last-child { border-bottom: none; }
+        .diagnosis-row select { 
+            flex: 2; 
+            min-width: 100px; 
+            padding: 6px 8px; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            font-size: 0.95rem; 
+            background: white; 
+            min-height: 36px;
+        }
+        .diagnosis-row .num-input { display: flex; align-items: center; gap: 4px; }
+        .diagnosis-row .num-input button { 
+            width: 36px; 
+            height: 36px; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            background: #f8f8fc; 
+            font-size: 1.2rem; 
+            cursor: pointer; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        .diagnosis-row .num-input input[type="number"] { 
+            width: 50px; 
+            padding: 4px 0; 
+            text-align: center; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            font-size: 0.95rem; 
+            min-height: 36px;
+        }
+        .diagnosis-row .remove-row { 
+            background: #ff3b30; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            width: 36px; 
+            height: 36px; 
+            font-size: 1.2rem; 
+            cursor: pointer; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        .add-row-btn { 
+            background: #e5e5ea; 
+            border: none; 
+            border-radius: 8px; 
+            padding: 8px 12px; 
+            margin-top: 8px; 
+            cursor: pointer; 
+            font-size: 0.95rem; 
+            color: #333; 
+            min-height: 40px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* ===== 手术信息 ===== */
+        .surgery-section { background: #f8f8fc; border-radius: 12px; padding: 12px 14px; margin-top: 8px; }
+        .surgery-section .sub-title { font-weight: 600; color: #444; margin-bottom: 8px; font-size: 1rem; }
+        .surgery-row { 
+            display: flex; 
+            flex-wrap: wrap; 
+            align-items: center; 
+            gap: 8px 12px; 
+            margin: 4px 0; 
+        }
+        .surgery-row .label { font-size: 0.9rem; color: #555; min-width: 44px; }
+        .step-group { display: inline-flex; align-items: center; gap: 4px; }
+        .step-group button { 
+            width: 36px; 
+            height: 36px; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            background: white; 
+            font-size: 1.2rem; 
+            cursor: pointer; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        .step-group .num-display { min-width: 34px; text-align: center; font-size: 1rem; font-weight: 500; }
+        .step-group input[type="number"] { 
+            width: 50px; 
+            padding: 4px 0; 
+            text-align: center; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            font-size: 0.95rem; 
+            min-height: 36px;
+        }
+        .radio-inline { display: flex; gap: 16px; flex-wrap: wrap; }
+        .radio-inline label { 
+            display: flex; 
+            align-items: center; 
+            gap: 4px; 
+            font-weight: normal; 
+            font-size: 0.9rem; 
+            min-height: 32px;
+        }
+        .radio-inline input[type="radio"] { width: 18px; height: 18px; accent-color: #007aff; }
+        .surgery-row .detail-inner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+
+        /* ===== 日期控件 ===== */
+        .date-control { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .date-control button { 
+            width: 36px; 
+            height: 36px; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            background: white; 
+            font-size: 1.2rem; 
+            cursor: pointer; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        .date-control .date-display { 
+            font-size: 1rem; 
+            font-weight: 500; 
+            min-width: 100px; 
+            text-align: center; 
+            cursor: pointer; 
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: #f8f8fc;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ===== 生成按钮 ===== */
+        .generate-btn { 
+            width: 100%; 
+            padding: 14px; 
+            background: #007aff; 
+            color: white; 
+            border: none; 
+            border-radius: 14px; 
+            font-size: 1.1rem; 
+            font-weight: 600; 
+            cursor: pointer; 
+            margin-top: 8px; 
+            min-height: 52px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* ===== Toast ===== */
+        .toast { 
+            position: fixed; 
+            bottom: 20px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: #333; 
+            color: white; 
+            padding: 12px 24px; 
+            border-radius: 30px; 
+            font-size: 1rem; 
+            z-index: 1000; 
+            opacity: 0; 
+            transition: opacity 0.3s; 
+            pointer-events: none; 
+            max-width: 90%;
+            text-align: center;
+        }
+        .toast.show { opacity: 1; }
+
+        /* ===== 响应式断点增强 ===== */
+        @media (max-width: 480px) {
+            body { padding: 8px 6px 30px; }
+            #app { padding: 10px 10px 16px; border-radius: 14px; }
+            .tab-btn { font-size: 0.85rem; padding: 8px 0; min-height: 38px; }
+            .type-group button { font-size: 0.7rem; min-width: 36px; padding: 6px 4px; }
+            .field-list li { padding: 6px 8px; min-height: 40px; }
+            .field-list .info { font-size: 0.85rem; }
+            .diagnosis-row select { min-width: 80px; font-size: 0.85rem; }
+            .step-group button { width: 32px; height: 32px; font-size: 1rem; }
+            .date-control button { width: 32px; height: 32px; font-size: 1rem; }
+            .date-control .date-display { font-size: 0.9rem; min-width: 80px; }
+            .surgery-row .label { font-size: 0.8rem; min-width: 36px; }
+        }
+
+        @media (min-width: 768px) {
+            #app { padding: 24px 28px 32px; }
+            .tab-btn { font-size: 1.1rem; padding: 12px 0; }
+            .type-group button { font-size: 0.9rem; padding: 10px 12px; }
+            .field-list .info { font-size: 1rem; }
+            .generate-btn { font-size: 1.2rem; padding: 16px; }
+        }
+
+        @media (max-height: 500px) and (orientation: landscape) {
+            body { padding: 8px 12px; }
+            #app { padding: 10px 14px; }
+            .fill-item { margin-bottom: 10px; padding-bottom: 8px; }
+            .fill-item .field-label { font-size: 0.85rem; margin-bottom: 4px; }
+            .fill-item input, .fill-item select, .fill-item textarea { padding: 6px 10px; min-height: 32px; }
+            .surgery-section { padding: 8px 10px; }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <h1>📋 交班报告</h1>
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="settings">⚙️ 设置</button>
+        <button class="tab-btn" data-tab="fill">📝 填写</button>
+    </div>
+
+    <!-- 设置页 -->
+    <div id="tab-settings" class="tab-content active">
+        <div class="setting-form">
+            <div class="row">
+                <label>字段名称</label>
+                <input id="field-name" placeholder="例如：入院详情" />
+            </div>
+            <div class="row">
+                <label>类型</label>
+                <div class="type-group" id="type-group">
+                    <button data-type="text">文本</button>
+                    <button data-type="longtext">长文本</button>
+                    <button data-type="number">数字</button>
+                    <button data-type="single">单选</button>
+                    <button data-type="multi">多选</button>
+                    <button data-type="diagnosis">诊断列表</button>
+                    <button data-type="surgery">手术信息</button>
+                    <button data-type="date" class="active">日期</button>
+                </div>
+            </div>
+            <div class="row" id="option-row" style="display:none;">
+                <label>选项（逗号分隔）</label>
+                <input id="field-options" placeholder="轻,中,重" />
+            </div>
+            <div class="row">
+                <label>预设值（可选）</label>
+                <input id="field-preset" placeholder="预设内容" />
+            </div>
+            <div class="action-row">
+                <button class="btn-primary" id="add-btn">➕ 添加</button>
+                <button class="btn-secondary" id="cancel-edit" style="display:none;">取消编辑</button>
+            </div>
+        </div>
+        <h3 style="font-size:16px; margin:8px 0 10px;">已定义字段（⬆⬇ 调整顺序）</h3>
+        <ul class="field-list" id="field-list"></ul>
+    </div>
+
+    <!-- 填写页 -->
+    <div id="tab-fill" class="tab-content">
+        <div id="fill-form"></div>
+        <button class="generate-btn" id="generate-btn">✅ 生成报告并复制</button>
+    </div>
+</div>
+
+<div id="toast" class="toast">已复制</div>
+
+<script>
+    // ============================================================
+    //  交班报告生成器 - 完整逻辑
+    //  数据存储在 localStorage 中，键名：report_template
+    // ============================================================
+
+    const STORAGE_KEY = 'report_template';
+    let template = [];
+    let editingIndex = -1;
+
+    // ---------- 日期工具 ----------
+    function formatDate(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return y + '.' + m + '.' + day;
+    }
+    function todayStr() {
+        return formatDate(new Date());
+    }
+
+    // ---------- 默认诊断选项 ----------
+    const DEFAULT_DIAGNOSTIC_OPTIONS = [
+        '肱骨骨折', '胫骨骨折', '股骨骨折', '桡骨远端骨折', '锁骨骨折',
+        '髌骨骨折', '踝关节骨折', '骨盆骨折', '脊柱骨折', '肋骨骨折',
+        '肩关节脱位', '肘关节脱位', '膝关节韧带损伤', '半月板损伤',
+        '跟腱断裂', '肌腱损伤', '神经损伤', '血管损伤', '软组织损伤'
+    ];
+
+    // ---------- 默认模板（首次打开时加载） ----------
+    function getDefaultTemplate() {
+        return [
+            { name: "日期", type: "date", preset: todayStr(), options: [] },
+            { name: "病区名称", type: "text", preset: "", options: [] },
+            { name: "入院详情", type: "diagnosis", preset: "", options: [] },
+            { name: "手术信息", type: "surgery", preset: "", options: [] },
+            { name: "特殊情况", type: "longtext", preset: "", options: [] },
+            { name: "儿内留观", type: "text", preset: "", options: [] },
+            { name: "小儿科", type: "text", preset: "", options: [] },
+        ];
+    }
+
+    // ---------- 加载 / 保存 ----------
+    function loadTemplate() {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+            try { template = JSON.parse(stored); }
+            catch(e) { template = getDefaultTemplate(); }
+        } else {
+            template = getDefaultTemplate();
+        }
+        // 确保每个字段有必备属性
+        template.forEach(item => {
+            if (!item.preset) item.preset = '';
+            if (!item.options) item.options = [];
+            if (item.type === 'diagnosis' && !item.diagnosisData) item.diagnosisData = [];
+            if (item.type === 'surgery' && !item.surgeryData) {
+                item.surgeryData = {
+                    pingzhen: { count: 0, returned: 'all', returnedCount: 0, unreturnedCount: 0 },
+                    daytime: { count: 0, returned: 'all', returnedCount: 0, unreturnedCount: 0, discharged: 0 }
+                };
+            }
+            if (item.type === 'date' && !item.dateValue) {
+                item.dateValue = item.preset || todayStr();
+            }
+        });
+        renderSettings();
+        renderFill();
+    }
+
+    function saveTemplate() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(template));
+    }
+
+    // ---------- 渲染设置 ----------
+    function renderSettings() {
+        const list = document.getElementById('field-list');
+        list.innerHTML = '';
+        template.forEach((item, index) => {
+            const li = document.createElement('li');
+            const typeMap = { 'text':'文本', 'longtext':'长文本', 'number':'数字', 'single':'单选', 'multi':'多选', 'diagnosis':'诊断列表', 'surgery':'手术信息', 'date':'日期' };
+            let typeDisplay = typeMap[item.type] || '文本';
+            let optionsText = '';
+            if (item.type === 'single' || item.type === 'multi' || item.type === 'diagnosis') {
+                if (item.options && item.options.length) {
+                    optionsText = ' [' + item.options.join(',') + ']';
+                }
+            }
+            const presetText = item.preset ? ' 预设:' + item.preset : '';
+            li.innerHTML = `
+                <div class="info">
+                    ${item.name}
+                    <span class="type-badge">${typeDisplay}${optionsText}${presetText}</span>
+                </div>
+                <div class="actions">
+                    ${index > 0 ? `<button class="move-btn" data-direction="up" data-index="${index}">⬆</button>` : ''}
+                    ${index < template.length-1 ? `<button class="move-btn" data-direction="down" data-index="${index}">⬇</button>` : ''}
+                    <button class="edit-btn" data-index="${index}">✏️</button>
+                    <button class="del-btn" data-index="${index}">🗑</button>
+                </div>
+            `;
+            list.appendChild(li);
+        });
+
+        document.querySelectorAll('.move-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const idx = parseInt(this.dataset.index);
+                const dir = this.dataset.direction;
+                const newIdx = dir === 'up' ? idx-1 : idx+1;
+                if (newIdx < 0 || newIdx >= template.length) return;
+                const item = template.splice(idx, 1)[0];
+                template.splice(newIdx, 0, item);
+                saveTemplate();
+                renderSettings();
+                renderFill();
+            });
+        });
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const idx = parseInt(this.dataset.index);
+                startEdit(idx);
+            });
+        });
+        document.querySelectorAll('.del-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const idx = parseInt(this.dataset.index);
+                if (confirm('确定删除字段吗？')) {
+                    template.splice(idx, 1);
+                    saveTemplate();
+                    renderSettings();
+                    renderFill();
+                }
+            });
+        });
+    }
+
+    // ---------- 设置交互 ----------
+    document.querySelectorAll('#type-group button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('#type-group button').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const type = this.dataset.type;
+            const optionRow = document.getElementById('option-row');
+            if (type === 'single' || type === 'multi' || type === 'diagnosis') {
+                optionRow.style.display = 'block';
+            } else {
+                optionRow.style.display = 'none';
+            }
+        });
+    });
+
+    document.getElementById('add-btn').addEventListener('click', function() {
+        const name = document.getElementById('field-name').value.trim();
+        if (!name) { alert('请输入字段名称'); return; }
+        const typeBtn = document.querySelector('#type-group .active');
+        const type = typeBtn ? typeBtn.dataset.type : 'text';
+        const optionsText = document.getElementById('field-options').value.trim();
+        let options = [];
+        if (type === 'single' || type === 'multi' || type === 'diagnosis') {
+            if (optionsText) {
+                options = optionsText.split(',').map(s => s.trim()).filter(Boolean);
+            }
+            if (type !== 'diagnosis' && !options.length) {
+                alert('请填写选项（逗号分隔）');
+                return;
+            }
+        }
+        let preset = document.getElementById('field-preset').value.trim();
+        if (type === 'date' && !preset) {
+            preset = todayStr();
+        }
+
+        let field = { name, type, preset, options };
+        if (type === 'diagnosis') field.diagnosisData = [];
+        if (type === 'surgery') {
+            field.surgeryData = {
+                pingzhen: { count: 0, returned: 'all', returnedCount: 0, unreturnedCount: 0 },
+                daytime: { count: 0, returned: 'all', returnedCount: 0, unreturnedCount: 0, discharged: 0 }
+            };
+        }
+        if (type === 'date') {
+            field.dateValue = preset || todayStr();
+        }
+
+        if (editingIndex === -1) {
+            template.push(field);
+        } else {
+            template[editingIndex] = field;
+            editingIndex = -1;
+            document.getElementById('add-btn').textContent = '➕ 添加';
+            document.getElementById('cancel-edit').style.display = 'none';
+        }
+
+        saveTemplate();
+        renderSettings();
+        renderFill();
+        clearSettingsForm();
+    });
+
+    document.getElementById('cancel-edit').addEventListener('click', function() {
+        editingIndex = -1;
+        document.getElementById('add-btn').textContent = '➕ 添加';
+        this.style.display = 'none';
+        clearSettingsForm();
+    });
+
+    function startEdit(index) {
+        const item = template[index];
+        document.getElementById('field-name').value = item.name;
+        const typeMap = { 'text':0, 'longtext':1, 'number':2, 'single':3, 'multi':4, 'diagnosis':5, 'surgery':6, 'date':7 };
+        const btns = document.querySelectorAll('#type-group button');
+        btns.forEach((btn, i) => {
+            btn.classList.toggle('active', i === typeMap[item.type]);
+        });
+        const optionRow = document.getElementById('option-row');
+        if (item.type === 'single' || item.type === 'multi' || item.type === 'diagnosis') {
+            optionRow.style.display = 'block';
+            document.getElementById('field-options').value = item.options.join(',');
+        } else {
+            optionRow.style.display = 'none';
+            document.getElementById('field-options').value = '';
+        }
+        document.getElementById('field-preset').value = item.preset || '';
+
+        editingIndex = index;
+        document.getElementById('add-btn').textContent = '💾 更新';
+        document.getElementById('cancel-edit').style.display = 'block';
+    }
+
+    function clearSettingsForm() {
+        document.getElementById('field-name').value = '';
+        document.querySelectorAll('#type-group button').forEach((btn, i) => {
+            btn.classList.toggle('active', i === 7); // 默认选中“日期”
+        });
+        document.getElementById('field-options').value = '';
+        document.getElementById('field-preset').value = '';
+        document.getElementById('option-row').style.display = 'none';
+    }
+
+    // ---------- 步进器组件 ----------
+    function createStepInput(initial, min, max, onUpdate) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'step-group';
+        const minus = document.createElement('button');
+        minus.textContent = '−';
+        const display = document.createElement('span');
+        display.className = 'num-display';
+        display.textContent = initial || 0;
+        const plus = document.createElement('button');
+        plus.textContent = '+';
+        const hidden = document.createElement('input');
+        hidden.type = 'number';
+        hidden.style.display = 'none';
+        hidden.value = initial || 0;
+
+        function update(val) {
+            let v = parseInt(val) || 0;
+            if (min !== undefined && v < min) v = min;
+            if (max !== undefined && v > max) v = max;
+            hidden.value = v;
+            display.textContent = v;
+            if (onUpdate) onUpdate(v);
+        }
+
+        minus.addEventListener('click', () => update(parseInt(hidden.value) - 1));
+        plus.addEventListener('click', () => update(parseInt(hidden.value) + 1));
+        display.addEventListener('click', function() {
+            const newVal = prompt('请输入数字:', display.textContent);
+            if (newVal !== null) update(parseInt(newVal) || 0);
+        });
+
+        wrapper.appendChild(minus);
+        wrapper.appendChild(display);
+        wrapper.appendChild(plus);
+        wrapper.appendChild(hidden);
+        wrapper.setValue = update;
+        wrapper.getValue = () => parseInt(hidden.value) || 0;
+        return wrapper;
+    }
+
+    // ---------- 日期控件 ----------
+    function createDateControl(initialDateStr, onUpdate) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'date-control';
+        const minus = document.createElement('button');
+        minus.textContent = '−';
+        const display = document.createElement('span');
+        display.className = 'date-display';
+        display.textContent = initialDateStr || todayStr();
+        const plus = document.createElement('button');
+        plus.textContent = '+';
+
+        let currentDate = parseDate(initialDateStr) || new Date();
+
+        function parseDate(str) {
+            if (!str) return null;
+            const parts = str.split('.');
+            if (parts.length === 3) {
+                const y = parseInt(parts[0]);
+                const m = parseInt(parts[1]) - 1;
+                const d = parseInt(parts[2]);
+                if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+                    return new Date(y, m, d);
+                }
+            }
+            return null;
+        }
+
+        function updateDisplay() {
+            display.textContent = formatDate(currentDate);
+            if (onUpdate) onUpdate(formatDate(currentDate));
+        }
+
+        function addDays(days) {
+            currentDate.setDate(currentDate.getDate() + days);
+            updateDisplay();
+        }
+
+        minus.addEventListener('click', () => addDays(-1));
+        plus.addEventListener('click', () => addDays(1));
+        display.addEventListener('click', function() {
+            const newVal = prompt('请输入日期 (YYYY.MM.DD):', formatDate(currentDate));
+            if (newVal) {
+                const parsed = parseDate(newVal);
+                if (parsed) {
+                    currentDate = parsed;
+                    updateDisplay();
+                } else {
+                    alert('格式错误，请使用 YYYY.MM.DD');
+                }
+            }
+        });
+
+        wrapper.appendChild(minus);
+        wrapper.appendChild(display);
+        wrapper.appendChild(plus);
+        wrapper.getDate = () => formatDate(currentDate);
+        wrapper.setDate = (dateStr) => {
+            const parsed = parseDate(dateStr);
+            if (parsed) {
+                currentDate = parsed;
+                updateDisplay();
+            }
+        };
+        return wrapper;
+    }
+
+    // ---------- 诊断列表渲染 ----------
+    function renderDiagnosis(item, container, idx) {
+        const tableDiv = document.createElement('div');
+        tableDiv.className = 'diagnosis-table';
+        let diagnosticOptions = item.options && item.options.length ? item.options : DEFAULT_DIAGNOSTIC_OPTIONS;
+        diagnosticOptions = [...new Set(diagnosticOptions)];
+        if (!item.diagnosisData || !item.diagnosisData.length) {
+            item.diagnosisData = [{ diag: '', num: 1 }];
+        }
+        const rows = item.diagnosisData;
+        function renderRows() {
+            tableDiv.innerHTML = '';
+            rows.forEach((row, ri) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'diagnosis-row';
+                const select = document.createElement('select');
+                const emptyOpt = document.createElement('option');
+                emptyOpt.value = '';
+                emptyOpt.textContent = '-- 请选择 --';
+                select.appendChild(emptyOpt);
+                diagnosticOptions.forEach(opt => {
+                    const o = document.createElement('option');
+                    o.value = opt;
+                    o.textContent = opt;
+                    select.appendChild(o);
+                });
+                if (row.diag && !diagnosticOptions.includes(row.diag)) {
+                    const customOpt = document.createElement('option');
+                    customOpt.value = row.diag;
+                    customOpt.textContent = row.diag;
+                    select.appendChild(customOpt);
+                }
+                if (row.diag) select.value = row.diag;
+                select.addEventListener('change', function() {
+                    rows[ri].diag = this.value;
+                    saveTemplate();
+                });
+                select.addEventListener('input', function() {
+                    const val = this.value;
+                    if (val && !Array.from(this.options).some(o => o.value === val)) {
+                        const opt = document.createElement('option');
+                        opt.value = val;
+                        opt.textContent = val;
+                        this.appendChild(opt);
+                    }
+                    rows[ri].diag = val;
+                    saveTemplate();
+                });
+                const numWrapper = document.createElement('div');
+                numWrapper.className = 'num-input';
+                const step = createStepInput(row.num || 1, 1, 99, function(val) {
+                    rows[ri].num = val;
+                    saveTemplate();
+                });
+                step.setValue(row.num || 1);
+                numWrapper.appendChild(step);
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-row';
+                removeBtn.textContent = '✕';
+                removeBtn.addEventListener('click', function() {
+                    if (rows.length > 1) {
+                        rows.splice(ri, 1);
+                        saveTemplate();
+                        renderRows();
+                    } else {
+                        alert('至少保留一行');
+                    }
+                });
+                rowDiv.appendChild(select);
+                rowDiv.appendChild(numWrapper);
+                rowDiv.appendChild(removeBtn);
+                tableDiv.appendChild(rowDiv);
+            });
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-row-btn';
+            addBtn.textContent = '+ 添加诊断';
+            addBtn.addEventListener('click', function() {
+                rows.push({ diag: '', num: 1 });
+                saveTemplate();
+                renderRows();
+            });
+            tableDiv.appendChild(addBtn);
+        }
+        renderRows();
+        container.appendChild(tableDiv);
+    }
+
+    // ---------- 手术信息渲染 ----------
+    function renderSurgery(item, container, idx) {
+        if (!item.surgeryData) {
+            item.surgeryData = {
+                pingzhen: { count: 0, returned: 'all', returnedCount: 0, unreturnedCount: 0 },
+                daytime: { count: 0, returned: 'all', returnedCount: 0, unreturnedCount: 0, discharged: 0 }
+            };
+        }
+        const data = item.surgeryData;
+        const wrapper = document.createElement('div');
+
+        // 平诊
+        const pzSection = document.createElement('div');
+        pzSection.className = 'surgery-section';
+        const pzTitle = document.createElement('div');
+        pzTitle.className = 'sub-title';
+        pzTitle.textContent = '🏥 平诊手术';
+        pzSection.appendChild(pzTitle);
+        const countRow = document.createElement('div');
+        countRow.className = 'surgery-row';
+        countRow.innerHTML = `<span class="label">台数</span>`;
+        const countStep = createStepInput(data.pingzhen.count || 0, 0, 99, function(val) {
+            data.pingzhen.count = val;
+            saveTemplate();
+        });
+        countStep.setValue(data.pingzhen.count || 0);
+        countRow.appendChild(countStep);
+        pzSection.appendChild(countRow);
+        const returnRow = document.createElement('div');
+        returnRow.className = 'surgery-row';
+        returnRow.innerHTML = `<span class="label">返回</span>`;
+        const radioGroup = document.createElement('div');
+        radioGroup.className = 'radio-inline';
+        const allLabel = document.createElement('label');
+        const allRadio = document.createElement('input');
+        allRadio.type = 'radio';
+        allRadio.name = 'pz_return_' + idx;
+        allRadio.value = 'all';
+        if (data.pingzhen.returned === 'all' || !data.pingzhen.returned) allRadio.checked = true;
+        allLabel.appendChild(allRadio);
+        allLabel.appendChild(document.createTextNode('全部返回'));
+        const partLabel = document.createElement('label');
+        const partRadio = document.createElement('input');
+        partRadio.type = 'radio';
+        partRadio.name = 'pz_return_' + idx;
+        partRadio.value = 'part';
+        if (data.pingzhen.returned === 'part') partRadio.checked = true;
+        partLabel.appendChild(partRadio);
+        partLabel.appendChild(document.createTextNode('部分返回'));
+        radioGroup.appendChild(allLabel);
+        radioGroup.appendChild(partLabel);
+        returnRow.appendChild(radioGroup);
+        pzSection.appendChild(returnRow);
+        const detailRow = document.createElement('div');
+        detailRow.className = 'surgery-row';
+        detailRow.style.display = (data.pingzhen.returned === 'part') ? 'flex' : 'none';
+        detailRow.innerHTML = `<span class="label">明细</span>`;
+        const inner = document.createElement('div');
+        inner.className = 'detail-inner';
+        const returnedStep = createStepInput(data.pingzhen.returnedCount || 0, 0, 99, function(val) {
+            data.pingzhen.returnedCount = val;
+            saveTemplate();
+        });
+        returnedStep.setValue(data.pingzhen.returnedCount || 0);
+        const unreturnedStep = createStepInput(data.pingzhen.unreturnedCount || 0, 0, 99, function(val) {
+            data.pingzhen.unreturnedCount = val;
+            saveTemplate();
+        });
+        unreturnedStep.setValue(data.pingzhen.unreturnedCount || 0);
+        inner.innerHTML = `<span>已返回</span><span id="pz_ret_span"></span><span>未返回</span><span id="pz_unret_span"></span>`;
+        const spans = inner.querySelectorAll('span');
+        spans[0].after(returnedStep);
+        spans[2].after(unreturnedStep);
+        detailRow.appendChild(inner);
+        pzSection.appendChild(detailRow);
+        const pzRadios = pzSection.querySelectorAll('input[name="pz_return_' + idx + '"]');
+        pzRadios.forEach(r => {
+            r.addEventListener('change', function() {
+                data.pingzhen.returned = this.value;
+                detailRow.style.display = (this.value === 'part') ? 'flex' : 'none';
+                saveTemplate();
+            });
+        });
+        wrapper.appendChild(pzSection);
+
+        // 日间
+        const dtSection = document.createElement('div');
+        dtSection.className = 'surgery-section';
+        const dtTitle = document.createElement('div');
+        dtTitle.className = 'sub-title';
+        dtTitle.textContent = '☀️ 日间手术';
+        dtSection.appendChild(dtTitle);
+        const dtCountRow = document.createElement('div');
+        dtCountRow.className = 'surgery-row';
+        dtCountRow.innerHTML = `<span class="label">台数</span>`;
+        const dtCountStep = createStepInput(data.daytime.count || 0, 0, 99, function(val) {
+            data.daytime.count = val;
+            saveTemplate();
+        });
+        dtCountStep.setValue(data.daytime.count || 0);
+        dtCountRow.appendChild(dtCountStep);
+        dtSection.appendChild(dtCountRow);
+        const dtReturnRow = document.createElement('div');
+        dtReturnRow.className = 'surgery-row';
+        dtReturnRow.innerHTML = `<span class="label">返回</span>`;
+        const dtRadioGroup = document.createElement('div');
+        dtRadioGroup.className = 'radio-inline';
+        const dtAllLabel = document.createElement('label');
+        const dtAllRadio = document.createElement('input');
+        dtAllRadio.type = 'radio';
+        dtAllRadio.name = 'dt_return_' + idx;
+        dtAllRadio.value = 'all';
+        if (data.daytime.returned === 'all' || !data.daytime.returned) dtAllRadio.checked = true;
+        dtAllLabel.appendChild(dtAllRadio);
+        dtAllLabel.appendChild(document.createTextNode('全部返回'));
+        const dtPartLabel = document.createElement('label');
+        const dtPartRadio = document.createElement('input');
+        dtPartRadio.type = 'radio';
+        dtPartRadio.name = 'dt_return_' + idx;
+        dtPartRadio.value = 'part';
+        if (data.daytime.returned === 'part') dtPartRadio.checked = true;
+        dtPartLabel.appendChild(dtPartRadio);
+        dtPartLabel.appendChild(document.createTextNode('部分返回'));
+        dtRadioGroup.appendChild(dtAllLabel);
+        dtRadioGroup.appendChild(dtPartLabel);
+        dtReturnRow.appendChild(dtRadioGroup);
+        dtSection.appendChild(dtReturnRow);
+        const dtDetailRow = document.createElement('div');
+        dtDetailRow.className = 'surgery-row';
+        dtDetailRow.style.display = (data.daytime.returned === 'part') ? 'flex' : 'none';
+        dtDetailRow.innerHTML = `<span class="label">明细</span>`;
+        const dtInner = document.createElement('div');
+        dtInner.className = 'detail-inner';
+        const dtReturnedStep = createStepInput(data.daytime.returnedCount || 0, 0, 99, function(val) {
+            data.daytime.returnedCount = val;
+            saveTemplate();
+        });
+        dtReturnedStep.setValue(data.daytime.returnedCount || 0);
+        const dtUnreturnedStep = createStepInput(data.daytime.unreturnedCount || 0, 0, 99, function(val) {
+            data.daytime.unreturnedCount = val;
+            saveTemplate();
+        });
+        dtUnreturnedStep.setValue(data.daytime.unreturnedCount || 0);
+        dtInner.innerHTML = `<span>已返回</span><span id="dt_ret_span"></span><span>未返回</span><span id="dt_unret_span"></span>`;
+        const dtSpans = dtInner.querySelectorAll('span');
+        dtSpans[0].after(dtReturnedStep);
+        dtSpans[2].after(dtUnreturnedStep);
+        dtDetailRow.appendChild(dtInner);
+        dtSection.appendChild(dtDetailRow);
+        const disRow = document.createElement('div');
+        disRow.className = 'surgery-row';
+        disRow.innerHTML = `<span class="label">已出院</span>`;
+        const disStep = createStepInput(data.daytime.discharged || 0, 0, 99, function(val) {
+            data.daytime.discharged = val;
+            saveTemplate();
+        });
+        disStep.setValue(data.daytime.discharged || 0);
+        disRow.appendChild(disStep);
+        dtSection.appendChild(disRow);
+        const dtRadios = dtSection.querySelectorAll('input[name="dt_return_' + idx + '"]');
+        dtRadios.forEach(r => {
+            r.addEventListener('change', function() {
+                data.daytime.returned = this.value;
+                dtDetailRow.style.display = (this.value === 'part') ? 'flex' : 'none';
+                saveTemplate();
+            });
+        });
+        wrapper.appendChild(dtSection);
+        container.appendChild(wrapper);
+    }
+
+    // ---------- 填写页渲染 ----------
+    function renderFill() {
+        const container = document.getElementById('fill-form');
+        container.innerHTML = '';
+        template.forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = 'fill-item';
+            const label = document.createElement('label');
+            label.className = 'field-label';
+            label.textContent = item.name;
+            div.appendChild(label);
+
+            if (item.type === 'text') {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = '请输入';
+                input.value = item.preset || '';
+                div.appendChild(input);
+            } else if (item.type === 'longtext') {
+                const textarea = document.createElement('textarea');
+                textarea.placeholder = '请输入详细内容（支持换行）';
+                textarea.value = item.preset || '';
+                div.appendChild(textarea);
+            } else if (item.type === 'number') {
+                const step = createStepInput(item.preset || 0, 0, 9999);
+                div.appendChild(step);
+            } else if (item.type === 'single') {
+                const group = document.createElement('div');
+                group.className = 'options-group';
+                const opts = item.options && item.options.length ? item.options : ['选项1', '选项2'];
+                opts.forEach(opt => {
+                    const lbl = document.createElement('label');
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = 'single_' + idx;
+                    radio.value = opt;
+                    if (item.preset && item.preset === opt) radio.checked = true;
+                    if (!item.preset && opt === opts[0]) radio.checked = true;
+                    lbl.appendChild(radio);
+                    lbl.appendChild(document.createTextNode(opt));
+                    group.appendChild(lbl);
+                });
+                div.appendChild(group);
+            } else if (item.type === 'multi') {
+                const group = document.createElement('div');
+                group.className = 'options-group';
+                const opts = item.options && item.options.length ? item.options : ['选项1', '选项2'];
+                const presets = item.preset ? item.preset.split(',').map(s => s.trim()) : [];
+                opts.forEach(opt => {
+                    const lbl = document.createElement('label');
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.value = opt;
+                    if (presets.includes(opt)) cb.checked = true;
+                    lbl.appendChild(cb);
+                    lbl.appendChild(document.createTextNode(opt));
+                    group.appendChild(lbl);
+                });
+                div.appendChild(group);
+            } else if (item.type === 'diagnosis') {
+                renderDiagnosis(item, div, idx);
+            } else if (item.type === 'surgery') {
+                renderSurgery(item, div, idx);
+            } else if (item.type === 'date') {
+                const dateStr = item.dateValue || item.preset || todayStr();
+                const dateControl = createDateControl(dateStr, function(newDate) {
+                    item.dateValue = newDate;
+                    saveTemplate();
+                });
+                div.appendChild(dateControl);
+            } else {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = '未知类型';
+                input.value = item.preset || '';
+                div.appendChild(input);
+            }
+            container.appendChild(div);
+        });
+    }
+
+    // ---------- 生成报告 ----------
+    document.getElementById('generate-btn').addEventListener('click', function() {
+        const lines = [];
+        const fillItems = document.querySelectorAll('#fill-form .fill-item');
+        fillItems.forEach((item, idx) => {
+            const field = template[idx];
+            const name = field.name;
+            let value = '';
+
+            if (field.type === 'text') {
+                const input = item.querySelector('input[type="text"]');
+                value = input ? input.value.trim() : '';
+            } else if (field.type === 'longtext') {
+                const textarea = item.querySelector('textarea');
+                value = textarea ? textarea.value.trim() : '';
+                if (value === '') value = '无';
+            } else if (field.type === 'number') {
+                const step = item.querySelector('.step-group');
+                value = step ? step.getValue() : 0;
+            } else if (field.type === 'single') {
+                const checked = item.querySelector('input[type="radio"]:checked');
+                value = checked ? checked.value : '';
+            } else if (field.type === 'multi') {
+                const checked = item.querySelectorAll('input[type="checkbox"]:checked');
+                const vals = Array.from(checked).map(cb => cb.value);
+                value = vals.length ? vals.join('，') : '无';
+            } else if (field.type === 'diagnosis') {
+                const data = field.diagnosisData || [];
+                const validRows = data.filter(r => r.diag.trim() !== '');
+                if (validRows.length === 0) {
+                    value = '无';
+                } else {
+                    value = validRows.map(r => `${r.diag}：${r.num || 1}人`).join('，');
+                }
+            } else if (field.type === 'surgery') {
+                const data = field.surgeryData || {};
+                const parts = [];
+                const pz = data.pingzhen || { count: 0, returned: 'all', returnedCount: 0, unreturnedCount: 0 };
+                if (pz.count > 0) {
+                    let pzStr = `平诊手术${pz.count}台`;
+                    if (pz.returned === 'all') {
+                        pzStr += '，已全部返回';
+                    } else {
+                        pzStr += `，已返回${pz.returnedCount || 0}台`;
+                        if (pz.unreturnedCount > 0) {
+                            pzStr += `，未返回${pz.unreturnedCount}台`;
+                        }
+                    }
+                    parts.push(pzStr);
+                }
+                const dt = data.daytime || { count: 0, returned: 'all', returnedCount: 0, unreturnedCount: 0, discharged: 0 };
+                if (dt.count > 0) {
+                    let dtStr = `日间手术${dt.count}台`;
+                    if (dt.returned === 'all') {
+                        dtStr += '，已全部返回';
+                    } else {
+                        dtStr += `，已返回${dt.returnedCount || 0}台`;
+                        if (dt.unreturnedCount > 0) {
+                            dtStr += `，未返回${dt.unreturnedCount}台`;
+                        }
+                    }
+                    if (dt.discharged > 0) {
+                        dtStr += `，已出院${dt.discharged}台`;
+                    }
+                    parts.push(dtStr);
+                }
+                value = parts.length ? parts.join('；') : '无手术';
+            } else if (field.type === 'date') {
+                const dateControl = item.querySelector('.date-control');
+                if (dateControl && dateControl.getDate) {
+                    value = dateControl.getDate();
+                } else {
+                    value = field.dateValue || field.preset || todayStr();
+                }
+            } else {
+                value = '未知';
+            }
+            lines.push(`${name}: ${value}`);
+        });
+        const report = lines.join('\n');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(report).then(() => {
+                showToast('✅ 报告已复制到剪贴板！');
+            }).catch(() => {
+                fallbackCopy(report);
+            });
+        } else {
+            fallbackCopy(report);
+        }
+    });
+
+    function fallbackCopy(text) {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            showToast('✅ 报告已复制到剪贴板！');
+        } catch (e) {
+            alert('复制失败，请手动复制：\n' + text);
+        }
+        document.body.removeChild(textarea);
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // ---------- 标签切换 ----------
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const tab = this.dataset.tab;
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            if (tab === 'fill') renderFill();
+        });
+    });
+
+    // ---------- 启动 ----------
+    loadTemplate();
+</script>
+</body>
+</html>
